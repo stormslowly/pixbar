@@ -71,8 +71,7 @@ fn main() -> std::io::Result<()> {
                     (KeyCode::Char('t'), _) => {
                         state.cap = match state.cap {
                             Capability::Ascii => Capability::EighthBlock,
-                            Capability::EighthBlock => Capability::PatchedSixteenth,
-                            Capability::PatchedSixteenth => Capability::Ascii,
+                            Capability::EighthBlock => Capability::Ascii,
                         };
                     }
                     _ => {}

@@ -13,7 +13,6 @@ pub struct Rgb(pub u8, pub u8, pub u8);
 pub enum Capability {
     Ascii,
     EighthBlock,
-    PatchedSixteenth,
 }
 
 impl Capability {
@@ -21,7 +20,6 @@ impl Capability {
         match self {
             Capability::Ascii => 1,
             Capability::EighthBlock => 8,
-            Capability::PatchedSixteenth => 16,
         }
     }
 }

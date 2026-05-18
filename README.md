@@ -1,41 +1,32 @@
 # almost-perfect-progressbar
 
-A research demo: a two-value overlay progress bar with 1% precision at 7-cell
-width, using a custom-patched font for 1/16-cell horizontal sub-positions on
-modern terminals (wezterm + ghostty).
+A two-value overlay progress bar (primary + buffer/lookahead) that uses
+standard Unicode 1/8 block characters for sub-cell precision in modern
+terminals. **Sub-1% step at every width ≥ 13 cells, 0.31% at the typical
+40-cell width — no font installation required.**
 
 ## Quick start
 
 ```bash
-cargo run --example basic            # static bar at 3 capability tiers
-cargo run --example animated         # 4-second fill (EighthBlock)
-cargo run --example narrow           # exercises 4 / 7 / 13 / 25 cell widths
-cargo run --example degrade_ladder   # same bar across capability tiers
+cargo run --example basic            # static bar at both capability tiers
+cargo run --example animated         # 4-second fill
+cargo run --example narrow           # exercises 7 / 13 / 25 / 40 cell widths
+cargo run --example degrade_ladder   # ASCII vs EighthBlock side-by-side
 cargo run --bin apb-bench            # interactive TUI; q to quit
-```
-
-## Unlock 1/16-cell precision (patched font)
-
-```bash
-# 1. Drop a JetBrains Mono Regular TTF at fonts/JetBrainsMono-Regular.ttf.
-#    See fonts/README.md.
-# 2. Generate the patched font:
-scripts/build-font.sh
-# 3. Install fonts/JetBrainsMono-APB.ttf via your OS font manager.
-# 4. Tell apb the patched font is available:
-export APB_FONT_PATCHED=1
-cargo run --example narrow
 ```
 
 ## Capability tiers
 
-| Capability         | Sub-positions per cell | Min width for 1% precision |
-|--------------------|-----------------------:|---------------------------:|
-| `Ascii`            |                      1 |                       100  |
-| `EighthBlock`      |                      8 |                        13  |
-| `PatchedSixteenth` |                     16 |                         7  |
+| Capability    | Sub-positions per cell | Min width for 1% precision | Char range |
+|---------------|-----------------------:|---------------------------:|------------|
+| `Ascii`       |                      1 |                       100  | `█` and space |
+| `EighthBlock` |                      8 |                         13 | `U+2580..U+258F` (standard Unicode block elements) |
 
-Auto-detected at runtime; override with `APB_FORCE_CAP=ascii|eighth|sixteenth`.
+Auto-detected at runtime (defaults to `EighthBlock`); override with
+`APB_FORCE_CAP=ascii|eighth`.
+
+A precision breakdown with real rendered comparisons:
+[`CLAUDE_PRECISION_REPORT.html`](CLAUDE_PRECISION_REPORT.html).
 
 ## Library use
 
@@ -56,13 +47,11 @@ print!("{}", s);
 (`render::classify`); ANSI/HTML serializers and glyph tables are end-of-pipe
 lookups. See
 [the design doc](docs/superpowers/specs/2026-05-18-almost-perfect-progressbar-design.md)
-for full detail.
+for full detail. (Note: the spec describes a `PatchedSixteenth` tier which
+was implemented and then removed once measurement confirmed `EighthBlock`
+already exceeds the 1% target at any reasonable width.)
 
 ## Asciinema casts
 
 Run `scripts/record-casts.sh` after installing asciinema; recordings land in
 `casts/`. Play back with `asciinema play casts/01-overview.cast`.
-
-To render the patched-font casts faithfully in a browser, embed the patched
-TTF alongside the asciinema-player web component (see
-<https://docs.asciinema.org/manual/player/quick-start/> for embedding).

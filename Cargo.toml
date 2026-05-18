@@ -10,21 +10,11 @@ path = "src/lib.rs"
 name = "apb-bench"
 path = "src/bin/apb_bench.rs"
 
-[[bin]]
-name = "apb-font-patch"
-path = "src/bin/apb_font_patch.rs"
-
 [features]
 html = []
-font-patch-integration = []
 
 [dependencies]
-crossterm  = "0.28"
-anyhow     = "1"
-clap       = { version = "4", features = ["derive"] }
-write-fonts = { version = "0.48", features = ["read"] }
-kurbo       = "0.13"
-ttf-parser  = "0.24"
+crossterm = "0.28"
 
 [dev-dependencies]
 insta    = { version = "1", features = ["yaml"] }

@@ -76,19 +76,17 @@ mod tests {
     }
 
     #[test]
-    fn boundaries_in_distinct_cells_7_at_16ths() {
-        // Worked example from spec: width=7, p1=33%, p2=67%, PatchedSixteenth.
-        // T=112, p1s=37, p2s=75.
-        let v = classify(7, 0.33, 0.67, Capability::PatchedSixteenth);
-        assert_eq!(v[0].kind, CellKind::PrimaryFull);
-        assert_eq!(v[1].kind, CellKind::PrimaryFull);
-        assert_eq!(v[2].kind, CellKind::PrimaryBoundary);
-        assert_eq!(v[2].sub_fill, 5);
-        assert_eq!(v[3].kind, CellKind::SecondaryFull);
-        assert_eq!(v[4].kind, CellKind::SecondaryBoundary);
-        assert_eq!(v[4].sub_fill, 11);
-        assert_eq!(v[5].kind, CellKind::Empty);
-        assert_eq!(v[6].kind, CellKind::Empty);
+    fn boundaries_in_distinct_cells_13_at_8ths() {
+        // Worked example: width=13, p1=33%, p2=67%, EighthBlock.
+        // T=104, p1s=round(34.32)=34, p2s=round(69.68)=70.
+        let v = classify(13, 0.33, 0.67, Capability::EighthBlock);
+        for i in 0..4   { assert_eq!(v[i].kind, CellKind::PrimaryFull, "cell {i}"); }
+        assert_eq!(v[4].kind, CellKind::PrimaryBoundary);
+        assert_eq!(v[4].sub_fill, 2);
+        for i in 5..8   { assert_eq!(v[i].kind, CellKind::SecondaryFull, "cell {i}"); }
+        assert_eq!(v[8].kind, CellKind::SecondaryBoundary);
+        assert_eq!(v[8].sub_fill, 6);
+        for i in 9..13  { assert_eq!(v[i].kind, CellKind::Empty, "cell {i}"); }
     }
 
     #[test]
@@ -132,7 +130,6 @@ mod prop {
         prop_oneof![
             Just(Capability::Ascii),
             Just(Capability::EighthBlock),
-            Just(Capability::PatchedSixteenth),
         ]
     }
 

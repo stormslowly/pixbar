@@ -1,4 +1,3 @@
 /target
 /.superpowers/
-tests/fixtures/*.ttf
-fonts/*.ttf
+/CLAUDE_*.html

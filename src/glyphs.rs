@@ -2,9 +2,8 @@ use crate::{render::CellKind, Capability};
 
 pub fn glyph_for(kind: CellKind, sub_fill: u8, cap: Capability) -> char {
     match cap {
-        Capability::Ascii            => ascii(kind),
-        Capability::EighthBlock      => eighth(kind, sub_fill),
-        Capability::PatchedSixteenth => sixteenth(kind, sub_fill),
+        Capability::Ascii       => ascii(kind),
+        Capability::EighthBlock => eighth(kind, sub_fill),
     }
 }
 
@@ -31,19 +30,6 @@ fn eighth(kind: CellKind, sub_fill: u8) -> char {
     }
 }
 
-fn sixteenth(kind: CellKind, sub_fill: u8) -> char {
-    match kind {
-        CellKind::Empty => ' ',
-        CellKind::PrimaryFull | CellKind::SecondaryFull => '█',
-        CellKind::PrimaryBoundary | CellKind::DegradedOverlap => {
-            char::from_u32(0xE100 + sub_fill.min(16) as u32).unwrap()
-        }
-        CellKind::SecondaryBoundary => {
-            char::from_u32(0xE120 + sub_fill.min(16) as u32).unwrap()
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,14 +48,5 @@ mod tests {
     }
     #[test] fn eighth_full_sub_is_full_block() {
         assert_eq!(glyph_for(CellKind::PrimaryBoundary, 8, Capability::EighthBlock), '█');
-    }
-    #[test] fn sixteenth_primary_5() {
-        assert_eq!(glyph_for(CellKind::PrimaryBoundary, 5, Capability::PatchedSixteenth) as u32, 0xE105);
-    }
-    #[test] fn sixteenth_secondary_11() {
-        assert_eq!(glyph_for(CellKind::SecondaryBoundary, 11, Capability::PatchedSixteenth) as u32, 0xE12B);
-    }
-    #[test] fn sixteenth_degraded_uses_primary_range() {
-        assert_eq!(glyph_for(CellKind::DegradedOverlap, 3, Capability::PatchedSixteenth) as u32, 0xE103);
     }
 }
