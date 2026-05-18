@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+assertion_line: 14
+expression: "fixture(13, 0.12, 0.13, Capability::EighthBlock)"
+---
+[38;2;88;166;255m█[48;2;60;90;160m▌[0m

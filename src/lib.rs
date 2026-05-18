@@ -80,6 +80,10 @@ impl Bar {
         let (p1, p2) = self.sanitized();
         classify(self.width, p1, p2, self.capability)
     }
+
+    pub fn render(&self) -> String {
+        ansi::encode(&self.cells(), &self.theme, self.capability)
+    }
 }
 
 #[cfg(test)]
@@ -102,5 +106,9 @@ mod bar_tests {
     }
     #[test] fn zero_width_no_cells() {
         assert!(Bar::new(0).primary(0.5).secondary(0.7).cells().is_empty());
+    }
+    #[test] fn render_is_non_empty_for_nonzero_width() {
+        let s = Bar::new(8).primary(0.5).secondary(0.7).render();
+        assert!(!s.is_empty());
     }
 }

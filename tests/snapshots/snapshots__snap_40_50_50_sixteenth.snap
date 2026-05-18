@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+assertion_line: 17
+expression: "fixture(40, 0.50, 0.50, Capability::PatchedSixteenth)"
+---
+[38;2;88;166;255m████████████████████[0m
