@@ -1,6 +1,17 @@
+//! Environment-driven capability auto-detection.
+//!
+//! Priority chain:
+//! 1. `APB_FORCE_CAP=ascii|eighth` — explicit override.
+//! 2. Default → [`Capability::EighthBlock`].
+//!
+//! `Ascii` is never auto-selected; users in Unicode-hostile environments
+//! must opt in via the env var. Detection performs no terminal capability
+//! probing — it reads env vars only.
+
 use crate::Capability;
 use std::env;
 
+/// Detect the best capability for the current process environment.
 pub fn detect() -> Capability {
     detect_from_env(|k| env::var(k).ok())
 }

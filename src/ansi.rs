@@ -1,5 +1,17 @@
+//! Cell-IR → ANSI string serializer with run-length-merged SGR sequences.
+//!
+//! Adjacent cells that share fg/bg do not re-emit `\x1b[…m`. Empty cells
+//! emit only a space (no SGR) so the terminal's native background shows
+//! through trailing whitespace. The output always ends with a final
+//! `\x1b[0m` reset when any color was written.
+
 use crate::{render::{Cell, CellKind}, glyphs::glyph_for, Capability, Rgb, Theme};
 
+/// Serialize a [`Cell`] sequence to an ANSI truecolor string.
+///
+/// `theme` provides the three layer colors; `cap` selects the glyph table.
+/// The returned string contains `ESC[38;2;…m` / `ESC[48;2;…m` SGR escapes
+/// with same-color runs deduplicated and a trailing `ESC[0m` reset.
 pub fn encode(cells: &[Cell], theme: &Theme, cap: Capability) -> String {
     let mut out = String::with_capacity(cells.len() * 24);
     let mut last_fg: Option<Rgb> = None;

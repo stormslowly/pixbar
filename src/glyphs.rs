@@ -1,5 +1,14 @@
+//! Capability-specific glyph tables.
+//!
+//! [`glyph_for`] is the only entry point. It dispatches on [`Capability`]
+//! and returns the single `char` that should be printed for a given
+//! [`CellKind`] + `sub_fill` pair. Empty cells always return space; full
+//! cells always return `█` (`U+2588`).
+
 use crate::{render::CellKind, Capability};
 
+/// Resolve a [`CellKind`] + `sub_fill` to the `char` that should be drawn
+/// under the given [`Capability`].
 pub fn glyph_for(kind: CellKind, sub_fill: u8, cap: Capability) -> char {
     match cap {
         Capability::Ascii       => ascii(kind),

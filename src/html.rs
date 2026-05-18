@@ -1,5 +1,11 @@
 use crate::{render::{Cell, CellKind}, glyphs::glyph_for, Capability, Rgb, Theme};
 
+/// Render a [`Cell`] sequence as an inline-styled HTML `<pre>` block.
+///
+/// Useful for embedding bars in README pages, visual regression fixtures,
+/// or reports. Unlike [`crate::ansi::encode`], empty cells get an explicit
+/// `theme.empty` background — HTML has no concept of "transparent so the
+/// terminal shows through."
 pub fn to_html(cells: &[Cell], theme: &Theme, cap: Capability) -> String {
     let mut s = String::new();
     s.push_str(r#"<pre style="font-family:'JetBrains Mono',monospace;font-size:18px;background:#0d1117;padding:8px;border-radius:6px;margin:0;display:inline-block;">"#);

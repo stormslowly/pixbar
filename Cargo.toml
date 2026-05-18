@@ -22,6 +22,9 @@ path = "src/bin/pixbar_bench.rs"
 [features]
 html = []
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 crossterm = "0.28"
 

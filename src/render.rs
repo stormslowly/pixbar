@@ -1,25 +1,57 @@
+//! Pure-function cell classification — the core of the renderer.
+//!
+//! [`classify`] subdivides the bar into integer sub-positions, then assigns
+//! each cell a [`CellKind`] and (where relevant) a `sub_fill` index into
+//! the capability's sub-position ladder. The result is a capability-agnostic
+//! intermediate representation; glyph and color lookups happen in
+//! [`crate::ansi`] / [`crate::glyphs`].
+
 use crate::Capability;
 
-// CellKind classifies a cell's role in the bar.
-// `Cell::sub_fill` carries the primary boundary's intra-cell position
-// for PrimaryBoundary and DegradedOverlap, and the secondary boundary's
-// position for SecondaryBoundary. It is 0 for the *Full and Empty variants.
+/// What a single cell on the bar represents.
+///
+/// The companion `sub_fill` field on [`Cell`] carries the boundary's
+/// position inside the cell (in capability sub-positions) for the three
+/// boundary variants, and is `0` otherwise.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CellKind {
+    /// Cell is past both `primary` and `secondary` — render as background.
     Empty,
+    /// Cell is fully inside the primary segment.
     PrimaryFull,
+    /// Cell is past primary but fully inside the secondary segment.
     SecondaryFull,
+    /// Cell straddles the primary boundary. `sub_fill` is the boundary's
+    /// position within the cell (in capability sub-positions, `1..=N-1`).
     PrimaryBoundary,
+    /// Cell straddles the secondary boundary. `sub_fill` is its position.
     SecondaryBoundary,
+    /// Both boundaries fall inside the same cell and disagree. The
+    /// renderer paints the primary boundary; the secondary boundary is
+    /// suppressed in this cell and will appear in the next one (or be
+    /// lost if the bar ends). `sub_fill` carries the primary position.
     DegradedOverlap,
 }
 
+/// A single cell of the rendered bar.
+///
+/// Produced by [`classify`] and consumed by [`crate::ansi::encode`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
+    /// The cell's role.
     pub kind: CellKind,
+    /// Boundary position inside the cell (`0..N` for capability `N`).
+    /// Always `0` for `Empty` / `PrimaryFull` / `SecondaryFull`.
     pub sub_fill: u8,
 }
 
+/// Classify each cell of a bar of `width` cells given `primary ≤ secondary`
+/// in `[0.0, 1.0]` and a [`Capability`] tier.
+///
+/// The function is referentially transparent: same inputs, same output, no
+/// I/O, no environment access. Boundary positions use strict inequalities,
+/// so a sub-position lying exactly on a cell edge is classified as the
+/// preceding cell's *Full variant — no spurious half-filled glyph.
 pub fn classify(width: usize, p1: f64, p2: f64, cap: Capability) -> Vec<Cell> {
     let n = cap.sub_positions();
     let total = (width as u32).saturating_mul(n);
