@@ -1,0 +1,30 @@
+[package]
+name = "almost-perfect-progressbar"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "apb-bench"
+path = "src/bin/apb_bench.rs"
+
+[[bin]]
+name = "apb-font-patch"
+path = "src/bin/apb_font_patch.rs"
+
+[features]
+html = []
+font-patch-integration = []
+
+[dependencies]
+crossterm  = "0.28"
+anyhow     = "1"
+clap       = { version = "4", features = ["derive"] }
+write-fonts = "0.48"
+ttf-parser  = "0.24"
+
+[dev-dependencies]
+insta    = { version = "1", features = ["yaml"] }
+proptest = "1"
