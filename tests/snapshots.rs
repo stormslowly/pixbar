@@ -19,3 +19,16 @@ fn fixture(width: usize, p1: f64, p2: f64, cap: Capability) -> String {
 #[test] fn snap_100_01_99_ascii() {
     insta::assert_snapshot!(fixture(100, 0.01, 0.99, Capability::Ascii));
 }
+
+#[cfg(feature = "html")]
+#[test]
+fn html_fixture_renders() {
+    use almost_perfect_progressbar::{html::to_html, Theme};
+    let bar = Bar::new(7).primary(0.33).secondary(0.67).capability(Capability::PatchedSixteenth);
+    let html = to_html(&bar.cells(), &Theme::default(), Capability::PatchedSixteenth);
+    std::fs::create_dir_all("tests/snapshots/visual").ok();
+    std::fs::write("tests/snapshots/visual/7-33-67-sixteenth.html", &html).unwrap();
+    assert!(html.starts_with("<pre"));
+    assert!(html.ends_with("</pre>"));
+    assert!(html.contains("rgb(88,166,255)")); // primary fg
+}
