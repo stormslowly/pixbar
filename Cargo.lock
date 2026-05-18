@@ -10,6 +10,7 @@ dependencies = [
  "clap",
  "crossterm",
  "insta",
+ "kurbo",
  "proptest",
  "ttf-parser",
  "write-fonts",

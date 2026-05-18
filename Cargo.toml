@@ -22,7 +22,8 @@ font-patch-integration = []
 crossterm  = "0.28"
 anyhow     = "1"
 clap       = { version = "4", features = ["derive"] }
-write-fonts = "0.48"
+write-fonts = { version = "0.48", features = ["read"] }
+kurbo       = "0.13"
 ttf-parser  = "0.24"
 
 [dev-dependencies]
