@@ -1,4 +1,4 @@
-use almost_perfect_progressbar::{Bar, Capability};
+use pixbar::{Bar, Capability};
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::{self, Event, KeyCode, KeyModifiers},

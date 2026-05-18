@@ -1,4 +1,4 @@
-use almost_perfect_progressbar::{Bar, Capability};
+use pixbar::{Bar, Capability};
 
 fn main() {
     for width in [7, 13, 25, 40] {

@@ -1,4 +1,4 @@
-use almost_perfect_progressbar::{Bar, Capability};
+use pixbar::{Bar, Capability};
 
 fn fixture(width: usize, p1: f64, p2: f64, cap: Capability) -> String {
     Bar::new(width).primary(p1).secondary(p2).capability(cap).render()
@@ -20,7 +20,7 @@ fn fixture(width: usize, p1: f64, p2: f64, cap: Capability) -> String {
 #[cfg(feature = "html")]
 #[test]
 fn html_fixture_renders() {
-    use almost_perfect_progressbar::{html::to_html, Theme};
+    use pixbar::{html::to_html, Theme};
     let bar = Bar::new(13).primary(0.33).secondary(0.67).capability(Capability::EighthBlock);
     let html = to_html(&bar.cells(), &Theme::default(), Capability::EighthBlock);
     std::fs::create_dir_all("tests/snapshots/visual").ok();

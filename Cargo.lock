@@ -3,15 +3,6 @@
 version = 4
 
 [[package]]
-name = "almost-perfect-progressbar"
-version = "0.1.0"
-dependencies = [
- "crossterm",
- "insta",
- "proptest",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -302,6 +293,15 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-link",
+]
+
+[[package]]
+name = "pixbar"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "insta",
+ "proptest",
 ]
 
 [[package]]

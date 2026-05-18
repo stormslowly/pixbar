@@ -1,4 +1,4 @@
-use almost_perfect_progressbar::{Bar, Capability};
+use pixbar::{Bar, Capability};
 
 fn main() {
     let p1 = 0.33;

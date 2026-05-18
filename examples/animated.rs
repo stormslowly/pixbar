@@ -1,4 +1,4 @@
-use almost_perfect_progressbar::{Bar, Capability};
+use pixbar::{Bar, Capability};
 use std::{thread::sleep, time::Duration};
 
 fn main() {

@@ -1,14 +1,20 @@
 [package]
-name = "almost-perfect-progressbar"
+name = "pixbar"
 version = "0.1.0"
 edition = "2024"
+description = "Sub-cell-precision two-value progress bar for narrow terminal widths (Unicode 1/8 block, no font patching required)."
+license = "MIT"
+readme = "README.md"
+keywords = ["progress", "progressbar", "tui", "terminal", "cli"]
+categories = ["command-line-interface", "visualization"]
+authors = ["pshu <stormslowly@gmail.com>"]
 
 [lib]
 path = "src/lib.rs"
 
 [[bin]]
-name = "apb-bench"
-path = "src/bin/apb_bench.rs"
+name = "pixbar-bench"
+path = "src/bin/pixbar_bench.rs"
 
 [features]
 html = []
