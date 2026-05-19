@@ -1,7 +1,9 @@
 use pixbar::{Bar, Capability};
 
 fn fixture(width: usize, p1: f64, p2: f64, cap: Capability) -> String {
-    Bar::new(width).primary(p1).secondary(p2).capability(cap).render()
+    // Force color=true: snapshots pin the ANSI output, but `Bar::new()` now
+    // auto-detects and stdout isn't a TTY under `cargo test`.
+    Bar::new(width).primary(p1).secondary(p2).capability(cap).color(true).render()
 }
 
 #[test] fn snap_13_33_67_eighth() {

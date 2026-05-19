@@ -110,6 +110,7 @@ impl Default for Theme {
 }
 
 pub use render::{Cell, CellKind};
+pub use detect::{detect, detect_color};
 use crate::render::classify;
 
 /// A configured progress bar. Build with [`Bar::new`] then chain setters.
@@ -133,11 +134,19 @@ pub struct Bar {
     secondary: f64,
     theme: Theme,
     capability: Capability,
+    color: bool,
 }
 
 impl Bar {
     /// Create a bar of the given cell width with default theme and
-    /// auto-detected capability.
+    /// auto-detected capability and color.
+    ///
+    /// Color emission defaults to [`detect_color`] — i.e. `false` when
+    /// `NO_COLOR` is set or `stdout` is not a TTY, `true` otherwise.
+    /// Use [`Bar::color`] to force a specific value (e.g. `.color(true)`
+    /// when you are building a string for a non-stdout consumer that
+    /// will paint it itself, or `.color(false)` to suppress escapes
+    /// unconditionally).
     pub fn new(width: usize) -> Self {
         Self {
             width,
@@ -145,6 +154,7 @@ impl Bar {
             secondary: 0.0,
             theme: Theme::default(),
             capability: detect::detect(),
+            color: detect::detect_color(),
         }
     }
     /// Set the primary ("played") progress in `[0.0, 1.0]`.
@@ -156,6 +166,23 @@ impl Bar {
     pub fn theme(mut self, t: Theme) -> Self { self.theme = t; self }
     /// Override the auto-detected rendering tier.
     pub fn capability(mut self, c: Capability) -> Self { self.capability = c; self }
+    /// Force color on (`true`) or off (`false`) for [`Bar::render`].
+    ///
+    /// When `false`, `render()` emits a glyph-only string with no SGR
+    /// escapes — the same output as [`Bar::render_plain`]. Use this when
+    /// piping to a file, when `NO_COLOR` is set, or when a downstream
+    /// renderer will apply its own styling.
+    pub fn color(mut self, on: bool) -> Self { self.color = on; self }
+    /// Set color emission from [`detect_color`] — `false` when `NO_COLOR`
+    /// is set or `stdout` is not a TTY, `true` otherwise.
+    ///
+    /// Equivalent to `self.color(pixbar::detect_color())`. Library
+    /// callers that wire pixbar into a CLI usually want this on every
+    /// `Bar::new(...)` so behavior matches the surrounding tool.
+    pub fn auto_color(self) -> Self {
+        let c = detect::detect_color();
+        self.color(c)
+    }
 
     fn sanitized(&self) -> (f64, f64) {
         let s = |x: f64| if x.is_nan() { 0.0 } else { x.clamp(0.0, 1.0) };
@@ -167,19 +194,46 @@ impl Bar {
     ///
     /// Use this if you want to drive a custom backend (TUI library, HTML,
     /// SVG). Prefer [`Bar::render`] for direct terminal output.
+    ///
+    /// # Boundary cells carry their second segment in the background
+    ///
+    /// Cells of kind [`CellKind::PrimaryBoundary`],
+    /// [`CellKind::SecondaryBoundary`] and [`CellKind::DegradedOverlap`]
+    /// only encode the boundary glyph; the *other* side of the boundary
+    /// is conveyed by a `secondary`-colored background paint on the same
+    /// cell. Consumers targeting backends without per-cell background
+    /// support (some `ratatui` cell builders, plain `print!`, log files)
+    /// must either snap each boundary to the nearest full cell or
+    /// composite the glyph themselves. See the
+    /// [boundary-cells note on `CellKind`](CellKind#boundary-cells-expect-a-per-cell-background-paint).
     pub fn cells(&self) -> Vec<Cell> {
         let (p1, p2) = self.sanitized();
         classify(self.width, p1, p2, self.capability)
     }
 
-    /// Serialize the bar to an ANSI string. Truecolor escape sequences are
-    /// run-length-merged so adjacent same-color cells share one `\x1b[…m`.
+    /// Serialize the bar.
     ///
-    /// The string ends with `\x1b[0m`; empty cells trailing the bar are
-    /// rendered as plain spaces so the terminal's native background shows
-    /// through.
+    /// If [`Bar::color`] is `true` (the default), emits an ANSI truecolor
+    /// string with run-length-merged SGR sequences, ending in `\x1b[0m`.
+    /// If `color` is `false`, emits a colorless glyph-only string — same
+    /// behavior as [`Bar::render_plain`].
     pub fn render(&self) -> String {
-        ansi::encode(&self.cells(), &self.theme, self.capability)
+        if self.color {
+            ansi::encode(&self.cells(), &self.theme, self.capability)
+        } else {
+            ansi::encode_plain(&self.cells(), self.capability)
+        }
+    }
+
+    /// Serialize the bar to a colorless glyph-only string regardless of
+    /// the [`Bar::color`] setting.
+    ///
+    /// Equivalent to `self.clone().color(false).render()`. Boundary cells
+    /// will only show their boundary glyph (no bg-painted second segment)
+    /// — see the
+    /// [boundary-cells note on `CellKind`](CellKind#boundary-cells-expect-a-per-cell-background-paint).
+    pub fn render_plain(&self) -> String {
+        ansi::encode_plain(&self.cells(), self.capability)
     }
 }
 

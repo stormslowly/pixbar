@@ -51,6 +51,21 @@ pub fn encode(cells: &[Cell], theme: &Theme, cap: Capability) -> String {
     out
 }
 
+/// Serialize a [`Cell`] sequence to a colorless glyph-only string.
+///
+/// Emits one glyph per cell with no SGR escapes — suitable for `NO_COLOR`
+/// environments, log files, pipelines that don't understand ANSI, or any
+/// consumer that wants to apply its own styling. Boundary cells lose
+/// their bg-paint slice (see the
+/// [boundary-cells note on `CellKind`](crate::render::CellKind#boundary-cells-expect-a-per-cell-background-paint)).
+pub fn encode_plain(cells: &[Cell], cap: Capability) -> String {
+    let mut out = String::with_capacity(cells.len());
+    for c in cells {
+        out.push(crate::glyphs::glyph_for(c.kind, c.sub_fill, cap));
+    }
+    out
+}
+
 /// Returns (fg, optional bg, is_empty_cell).
 fn layer_colors(kind: CellKind, theme: &Theme) -> (Rgb, Option<Rgb>, bool) {
     match kind {
@@ -69,6 +84,17 @@ mod tests {
     #[test] fn empty_cells_emit_spaces_only() {
         let cells = vec![Cell { kind: CellKind::Empty, sub_fill: 0 }; 3];
         assert_eq!(encode(&cells, &Theme::default(), Capability::EighthBlock), "   ");
+    }
+
+    #[test] fn encode_plain_emits_glyphs_no_escapes() {
+        let cells = vec![
+            Cell { kind: CellKind::PrimaryFull,    sub_fill: 0 },
+            Cell { kind: CellKind::PrimaryBoundary, sub_fill: 4 },
+            Cell { kind: CellKind::Empty,          sub_fill: 0 },
+        ];
+        let out = encode_plain(&cells, Capability::EighthBlock);
+        assert_eq!(out, "█▌ ");
+        assert!(!out.contains('\x1b'));
     }
 
     #[test] fn rle_does_not_resend_same_fg() {

@@ -13,6 +13,26 @@ use crate::Capability;
 /// The companion `sub_fill` field on [`Cell`] carries the boundary's
 /// position inside the cell (in capability sub-positions) for the three
 /// boundary variants, and is `0` otherwise.
+///
+/// # Boundary cells expect a per-cell background paint
+///
+/// `PrimaryBoundary`, `SecondaryBoundary` and `DegradedOverlap` only carry
+/// the boundary glyph (e.g. `▌`); the *other* side of the boundary —
+/// the part of the cell on the far side of `sub_fill` — is conveyed by
+/// the cell's background color, not by a glyph. The built-in ANSI
+/// backend ([`crate::ansi::encode`]) and the HTML backend (under the
+/// `html` feature) honor this: they paint the trailing `secondary`
+/// slice via `\x1b[48;2;…m` or `background:` on the boundary cell. Any
+/// consumer of the [`Cell`] IR that targets a renderer without per-cell
+/// background support (e.g. `ratatui` cells styled fg-only, `crossterm`
+/// plain `print!`, log output) will see the boundary glyph only and
+/// lose the second segment around the edge.
+///
+/// If your renderer cannot paint backgrounds, you have two reasonable
+/// options: snap each boundary to the nearest full cell before display
+/// (lose sub-cell precision), or composite the boundary glyph in the
+/// primary color on top of an explicit `secondary`-colored leading
+/// half-block. See [`crate::Bar::cells`] for IR-consumer guidance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CellKind {
     /// Cell is past both `primary` and `secondary` — render as background.
@@ -23,13 +43,23 @@ pub enum CellKind {
     SecondaryFull,
     /// Cell straddles the primary boundary. `sub_fill` is the boundary's
     /// position within the cell (in capability sub-positions, `1..=N-1`).
+    ///
+    /// The cell's trailing slice (right of `sub_fill`) is conveyed by a
+    /// `secondary`-colored background — renderers that cannot paint a
+    /// per-cell bg will silently lose that slice. See the
+    /// [boundary-cells note on `CellKind`](CellKind#boundary-cells-expect-a-per-cell-background-paint).
     PrimaryBoundary,
     /// Cell straddles the secondary boundary. `sub_fill` is its position.
+    ///
+    /// The trailing slice is empty (terminal background); consumers
+    /// without bg paint will see only the boundary glyph.
     SecondaryBoundary,
     /// Both boundaries fall inside the same cell and disagree. The
     /// renderer paints the primary boundary; the secondary boundary is
     /// suppressed in this cell and will appear in the next one (or be
     /// lost if the bar ends). `sub_fill` carries the primary position.
+    ///
+    /// Same boundary-bg caveat as [`CellKind::PrimaryBoundary`].
     DegradedOverlap,
 }
 
