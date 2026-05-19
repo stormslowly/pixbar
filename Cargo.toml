@@ -25,6 +25,12 @@ html = []
 [package.metadata.docs.rs]
 all-features = true
 
+[package.metadata.release]
+publish = false
+push = true
+tag-name = "v{{version}}"
+pre-release-commit-message = "release: {{version}}"
+
 [dependencies]
 crossterm = "0.28"
 
