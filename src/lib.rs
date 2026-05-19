@@ -135,6 +135,7 @@ pub struct Bar {
     theme: Theme,
     capability: Capability,
     color: bool,
+    min_visible: bool,
 }
 
 impl Bar {
@@ -155,6 +156,7 @@ impl Bar {
             theme: Theme::default(),
             capability: detect::detect(),
             color: detect::detect_color(),
+            min_visible: false,
         }
     }
     /// Set the primary ("played") progress in `[0.0, 1.0]`.
@@ -183,11 +185,35 @@ impl Bar {
         let c = detect::detect_color();
         self.color(c)
     }
+    /// Guarantee that any positive `primary` / `secondary` fraction
+    /// renders as at least one sub-position — i.e. never disappears to
+    /// zero cells under coarse capability or narrow widths.
+    ///
+    /// Without this, e.g. `primary(0.01)` on an 8-cell `Ascii` bar
+    /// rounds to zero cells and the user sees no progress at all.
+    /// With `min_visible(true)`, the value is bumped up to the smallest
+    /// representable sub-position (`1 / (width × sub_positions)`)
+    /// before classification. The post-bump secondary is never pulled
+    /// below the post-bump primary.
+    ///
+    /// Off by default to preserve referential transparency between
+    /// `primary` and the rendered output.
+    pub fn min_visible(mut self, on: bool) -> Self { self.min_visible = on; self }
 
     fn sanitized(&self) -> (f64, f64) {
         let s = |x: f64| if x.is_nan() { 0.0 } else { x.clamp(0.0, 1.0) };
-        let (a, b) = (s(self.primary), s(self.secondary));
-        if a > b { (b, a) } else { (a, b) }
+        let (mut a, mut b) = (s(self.primary), s(self.secondary));
+        if a > b { std::mem::swap(&mut a, &mut b); }
+        if self.min_visible {
+            let total = (self.width as u32)
+                .saturating_mul(self.capability.sub_positions())
+                .max(1) as f64;
+            let floor = 1.0 / total;
+            if a > 0.0 && a < floor { a = floor; }
+            if b > 0.0 && b < floor { b = floor; }
+            if b < a { b = a; }
+        }
+        (a, b)
     }
 
     /// Produce the capability-agnostic [`Cell`] sequence for this bar.
@@ -261,5 +287,43 @@ mod bar_tests {
     #[test] fn render_is_non_empty_for_nonzero_width() {
         let s = Bar::new(8).primary(0.5).secondary(0.7).render();
         assert!(!s.is_empty());
+    }
+    #[test] fn min_visible_off_lets_tiny_pct_round_to_zero() {
+        // width=8, Ascii → 8 sub-positions total. p=0.05 → 0.4 → round → 0.
+        let cells = Bar::new(8)
+            .capability(Capability::Ascii)
+            .primary(0.05).secondary(0.05)
+            .cells();
+        assert!(cells.iter().all(|c| c.kind == CellKind::Empty));
+    }
+    #[test] fn min_visible_on_bumps_tiny_pct_to_one_cell() {
+        let cells = Bar::new(8)
+            .capability(Capability::Ascii)
+            .primary(0.05).secondary(0.05)
+            .min_visible(true)
+            .cells();
+        assert_eq!(cells[0].kind, CellKind::PrimaryFull);
+        assert!(cells[1..].iter().all(|c| c.kind == CellKind::Empty));
+    }
+    #[test] fn min_visible_does_not_bump_zero() {
+        let cells = Bar::new(8)
+            .capability(Capability::Ascii)
+            .primary(0.0).secondary(0.0)
+            .min_visible(true)
+            .cells();
+        assert!(cells.iter().all(|c| c.kind == CellKind::Empty));
+    }
+    #[test] fn min_visible_bumps_secondary_independently() {
+        // primary=0, secondary=0.05 with min_visible → secondary becomes 1/8 ≈ 0.125
+        // → should produce a SecondaryBoundary or SecondaryFull in cell 0.
+        let cells = Bar::new(8)
+            .capability(Capability::EighthBlock)
+            .primary(0.0).secondary(0.05)
+            .min_visible(true)
+            .cells();
+        assert!(matches!(
+            cells[0].kind,
+            CellKind::SecondaryFull | CellKind::SecondaryBoundary
+        ));
     }
 }
