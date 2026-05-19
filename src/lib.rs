@@ -83,12 +83,13 @@ impl Capability {
     }
 }
 
-/// Foreground/background palette for the three render layers.
+/// Foreground/background palette for the render layers.
 ///
 /// `primary` colors the "played" segment, `secondary` the "buffered /
-/// lookahead" segment, and `empty` is the test-only HTML backend's
-/// background (the ANSI backend leaves empty cells transparent so the
-/// terminal's own background shows through).
+/// lookahead" segment, `overflow` the slice where primary exceeds
+/// secondary under [`OverflowPolicy::Distinct`], and `empty` is the
+/// HTML backend's background (the ANSI backend leaves empty cells
+/// transparent so the terminal's own background shows through).
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
     /// Fill color for the primary (main) progress segment.
@@ -97,6 +98,11 @@ pub struct Theme {
     pub secondary: Rgb,
     /// Background color for empty cells. ANSI ignores it; HTML uses it.
     pub empty: Rgb,
+    /// Fill color for the overflow slice (`primary > secondary` under
+    /// [`OverflowPolicy::Distinct`]). Defaults to a red close to the
+    /// GitHub "deletion" tone so over-budget / over-pace progress reads
+    /// as an alert at a glance.
+    pub overflow: Rgb,
 }
 
 impl Default for Theme {
@@ -105,8 +111,35 @@ impl Default for Theme {
             primary:   Rgb(88, 166, 255),
             secondary: Rgb(60,  90, 160),
             empty:     Rgb(33,  38,  45),
+            overflow:  Rgb(248, 81, 73),
         }
     }
+}
+
+/// How [`Bar`] reconciles a `primary` greater than `secondary`.
+///
+/// The original two-value contract assumes `secondary ≥ primary` (e.g.
+/// "buffered ≥ played"). For semantics where primary may legitimately
+/// run past secondary — over-budget spend vs. budget, used vs. expected
+/// pace — pick [`OverflowPolicy::Distinct`] to render the excess as a
+/// dedicated overflow segment instead of folding it back.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OverflowPolicy {
+    /// If `primary > secondary`, silently swap them so `secondary` is
+    /// always the higher value. Preserves the original visual but loses
+    /// the directional information. **Default.**
+    #[default]
+    Swap,
+    /// Cap `primary` at `secondary`'s value when `primary > secondary`.
+    /// The bar shows `primary == secondary` instead of the original
+    /// over-run. Useful when the caller treats `secondary` as a hard
+    /// ceiling.
+    Clamp,
+    /// Preserve `primary > secondary`. Cells in `(secondary, primary]`
+    /// are emitted with overflow [`CellKind`] variants and rendered
+    /// using [`Theme::overflow`] — letting over-budget / over-pace
+    /// progress paint as a distinct color band.
+    Distinct,
 }
 
 pub use render::{Cell, CellKind};
@@ -124,8 +157,11 @@ use crate::render::classify;
 ///
 /// - `primary` and `secondary` are clamped to `[0.0, 1.0]`.
 /// - `NaN` becomes `0.0`.
-/// - If `primary > secondary` the two are swapped (the contract is
-///   `secondary ≥ primary`, e.g. "buffered ≥ played").
+/// - When `primary > secondary`, behavior depends on [`Bar::overflow`]:
+///   default [`OverflowPolicy::Swap`] silently swaps them;
+///   [`OverflowPolicy::Clamp`] caps primary at secondary;
+///   [`OverflowPolicy::Distinct`] preserves both and renders the excess
+///   with [`CellKind::OverflowFull`] and friends in [`Theme::overflow`].
 /// - `width == 0` produces an empty render.
 #[derive(Clone, Debug)]
 pub struct Bar {
@@ -136,6 +172,7 @@ pub struct Bar {
     capability: Capability,
     color: bool,
     min_visible: bool,
+    overflow: OverflowPolicy,
 }
 
 impl Bar {
@@ -157,6 +194,7 @@ impl Bar {
             capability: detect::detect(),
             color: detect::detect_color(),
             min_visible: false,
+            overflow: OverflowPolicy::default(),
         }
     }
     /// Set the primary ("played") progress in `[0.0, 1.0]`.
@@ -199,21 +237,46 @@ impl Bar {
     /// Off by default to preserve referential transparency between
     /// `primary` and the rendered output.
     pub fn min_visible(mut self, on: bool) -> Self { self.min_visible = on; self }
+    /// Set the [`OverflowPolicy`] that decides how `primary > secondary`
+    /// is rendered. Default: [`OverflowPolicy::Swap`].
+    pub fn overflow(mut self, p: OverflowPolicy) -> Self { self.overflow = p; self }
 
+    /// Sanitize raw inputs to `lo ≤ hi`. Only retained for unit tests
+    /// that pre-date [`Bar::resolved`]; rendering uses `resolved`
+    /// directly so it can honor [`OverflowPolicy::Distinct`].
+    #[cfg(test)]
     fn sanitized(&self) -> (f64, f64) {
+        let (lo, hi, _) = self.resolved();
+        (lo, hi)
+    }
+
+    /// Returns `(lo, hi, is_overflow)` after applying `min_visible` and
+    /// the active [`OverflowPolicy`]. `lo ≤ hi` always; `is_overflow` is
+    /// `true` only when policy is `Distinct` and the original primary
+    /// exceeded the original secondary.
+    fn resolved(&self) -> (f64, f64, bool) {
         let s = |x: f64| if x.is_nan() { 0.0 } else { x.clamp(0.0, 1.0) };
-        let (mut a, mut b) = (s(self.primary), s(self.secondary));
-        if a > b { std::mem::swap(&mut a, &mut b); }
+        let p = s(self.primary);
+        let q = s(self.secondary);
+
+        let (mut lo, mut hi, is_overflow) = match self.overflow {
+            OverflowPolicy::Swap     => (p.min(q), p.max(q), false),
+            OverflowPolicy::Clamp    => (p.min(q), q,        false),
+            OverflowPolicy::Distinct => {
+                if p > q { (q, p, true) } else { (p, q, false) }
+            }
+        };
+
         if self.min_visible {
             let total = (self.width as u32)
                 .saturating_mul(self.capability.sub_positions())
                 .max(1) as f64;
             let floor = 1.0 / total;
-            if a > 0.0 && a < floor { a = floor; }
-            if b > 0.0 && b < floor { b = floor; }
-            if b < a { b = a; }
+            if lo > 0.0 && lo < floor { lo = floor; }
+            if hi > 0.0 && hi < floor { hi = floor; }
+            if hi < lo { hi = lo; }
         }
-        (a, b)
+        (lo, hi, is_overflow)
     }
 
     /// Produce the capability-agnostic [`Cell`] sequence for this bar.
@@ -224,17 +287,28 @@ impl Bar {
     /// # Boundary cells carry their second segment in the background
     ///
     /// Cells of kind [`CellKind::PrimaryBoundary`],
-    /// [`CellKind::SecondaryBoundary`] and [`CellKind::DegradedOverlap`]
-    /// only encode the boundary glyph; the *other* side of the boundary
-    /// is conveyed by a `secondary`-colored background paint on the same
-    /// cell. Consumers targeting backends without per-cell background
-    /// support (some `ratatui` cell builders, plain `print!`, log files)
-    /// must either snap each boundary to the nearest full cell or
-    /// composite the glyph themselves. See the
+    /// [`CellKind::SecondaryBoundary`], [`CellKind::DegradedOverlap`]
+    /// and the overflow-boundary variants only encode the boundary glyph;
+    /// the *other* side of the boundary is conveyed by a colored
+    /// background paint on the same cell. Consumers targeting backends
+    /// without per-cell background support (some `ratatui` cell builders,
+    /// plain `print!`, log files) must either snap each boundary to the
+    /// nearest full cell or composite the glyph themselves. See the
     /// [boundary-cells note on `CellKind`](CellKind#boundary-cells-expect-a-per-cell-background-paint).
     pub fn cells(&self) -> Vec<Cell> {
-        let (p1, p2) = self.sanitized();
-        classify(self.width, p1, p2, self.capability)
+        let (lo, hi, is_overflow) = self.resolved();
+        let mut cells = classify(self.width, lo, hi, self.capability);
+        if is_overflow {
+            for c in cells.iter_mut() {
+                c.kind = match c.kind {
+                    CellKind::SecondaryFull       => CellKind::OverflowFull,
+                    CellKind::PrimaryBoundary     => CellKind::OverflowInnerBoundary,
+                    CellKind::SecondaryBoundary   => CellKind::OverflowOuterBoundary,
+                    other => other,
+                };
+            }
+        }
+        cells
     }
 
     /// Serialize the bar.
@@ -312,6 +386,45 @@ mod bar_tests {
             .min_visible(true)
             .cells();
         assert!(cells.iter().all(|c| c.kind == CellKind::Empty));
+    }
+    #[test] fn overflow_swap_is_default_and_matches_legacy() {
+        // p=0.9 > q=0.1 under default Swap → resolved as lo=0.1, hi=0.9, no overflow.
+        let b = Bar::new(10).primary(0.9).secondary(0.1);
+        let (lo, hi, ov) = b.resolved();
+        assert_eq!((lo, hi, ov), (0.1, 0.9, false));
+    }
+    #[test] fn overflow_clamp_caps_primary_at_secondary() {
+        let b = Bar::new(10).primary(0.9).secondary(0.1).overflow(OverflowPolicy::Clamp);
+        let (lo, hi, ov) = b.resolved();
+        // primary clamped to 0.1, so lo=hi=0.1, no overflow.
+        assert_eq!((lo, hi, ov), (0.1, 0.1, false));
+    }
+    #[test] fn overflow_distinct_preserves_order_and_sets_flag() {
+        let b = Bar::new(10).primary(0.9).secondary(0.1).overflow(OverflowPolicy::Distinct);
+        let (lo, hi, ov) = b.resolved();
+        assert_eq!((lo, hi, ov), (0.1, 0.9, true));
+    }
+    #[test] fn overflow_distinct_when_primary_le_secondary_no_overflow() {
+        let b = Bar::new(10).primary(0.3).secondary(0.7).overflow(OverflowPolicy::Distinct);
+        let (_, _, ov) = b.resolved();
+        assert!(!ov);
+    }
+    #[test] fn overflow_distinct_produces_overflow_kinds() {
+        // width=13, p1=0.67, p2=0.33, EighthBlock, Distinct.
+        // Without Distinct (default Swap) this is identical to the existing
+        // 13/33/67 snapshot — same cells, just labeled.
+        // With Distinct, cells (5..8) that would be SecondaryFull become OverflowFull,
+        // boundaries get renamed too.
+        let cells = Bar::new(13)
+            .primary(0.67).secondary(0.33)
+            .capability(Capability::EighthBlock)
+            .overflow(OverflowPolicy::Distinct)
+            .cells();
+        assert!(cells.iter().any(|c| c.kind == CellKind::OverflowFull));
+        // Inner boundary at lo=0.33 → cell 4.
+        assert_eq!(cells[4].kind, CellKind::OverflowInnerBoundary);
+        // Outer boundary at hi=0.67 → cell 8.
+        assert_eq!(cells[8].kind, CellKind::OverflowOuterBoundary);
     }
     #[test] fn min_visible_bumps_secondary_independently() {
         // primary=0, secondary=0.05 with min_visible → secondary becomes 1/8 ≈ 0.125

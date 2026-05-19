@@ -15,8 +15,11 @@ pub fn to_html(cells: &[Cell], theme: &Theme, cap: Capability) -> String {
             CellKind::Empty                                       => (theme.empty,     theme.empty),
             CellKind::PrimaryFull                                 => (theme.primary,   theme.empty),
             CellKind::SecondaryFull                               => (theme.secondary, theme.empty),
+            CellKind::OverflowFull                                => (theme.overflow,  theme.empty),
             CellKind::PrimaryBoundary | CellKind::DegradedOverlap => (theme.primary,   theme.secondary),
             CellKind::SecondaryBoundary                           => (theme.secondary, theme.empty),
+            CellKind::OverflowInnerBoundary                       => (theme.primary,   theme.overflow),
+            CellKind::OverflowOuterBoundary                       => (theme.overflow,  theme.empty),
         };
         s.push_str(&format!(
             r#"<span style="color:{};background:{};">{}</span>"#,

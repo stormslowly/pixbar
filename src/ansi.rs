@@ -69,11 +69,14 @@ pub fn encode_plain(cells: &[Cell], cap: Capability) -> String {
 /// Returns (fg, optional bg, is_empty_cell).
 fn layer_colors(kind: CellKind, theme: &Theme) -> (Rgb, Option<Rgb>, bool) {
     match kind {
-        CellKind::Empty                                       => (theme.primary, None, true),
-        CellKind::PrimaryFull                                 => (theme.primary,   None, false),
-        CellKind::SecondaryFull                               => (theme.secondary, None, false),
-        CellKind::PrimaryBoundary | CellKind::DegradedOverlap => (theme.primary,   Some(theme.secondary), false),
-        CellKind::SecondaryBoundary                           => (theme.secondary, None, false),
+        CellKind::Empty                                       => (theme.primary,   None,                   true),
+        CellKind::PrimaryFull                                 => (theme.primary,   None,                   false),
+        CellKind::SecondaryFull                               => (theme.secondary, None,                   false),
+        CellKind::OverflowFull                                => (theme.overflow,  None,                   false),
+        CellKind::PrimaryBoundary | CellKind::DegradedOverlap => (theme.primary,   Some(theme.secondary),  false),
+        CellKind::SecondaryBoundary                           => (theme.secondary, None,                   false),
+        CellKind::OverflowInnerBoundary                       => (theme.primary,   Some(theme.overflow),   false),
+        CellKind::OverflowOuterBoundary                       => (theme.overflow,  None,                   false),
     }
 }
 

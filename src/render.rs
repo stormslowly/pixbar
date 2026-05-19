@@ -61,6 +61,24 @@ pub enum CellKind {
     ///
     /// Same boundary-bg caveat as [`CellKind::PrimaryBoundary`].
     DegradedOverlap,
+    /// Cell is fully inside the overflow slice (`secondary < primary`
+    /// under [`crate::OverflowPolicy::Distinct`]). Rendered with
+    /// [`crate::Theme::overflow`].
+    OverflowFull,
+    /// Cell straddles the *inner* boundary (where `secondary` ends and
+    /// the overflow slice begins) under
+    /// [`crate::OverflowPolicy::Distinct`]. Leading slice is "both
+    /// markers cover" (primary color); trailing slice is overflow.
+    /// `sub_fill` is the secondary marker's position within the cell.
+    ///
+    /// Same boundary-bg caveat as [`CellKind::PrimaryBoundary`], but
+    /// the trailing slice is `overflow`-colored, not `secondary`.
+    OverflowInnerBoundary,
+    /// Cell straddles the *outer* boundary (the primary marker, past
+    /// the secondary) under [`crate::OverflowPolicy::Distinct`].
+    /// Leading slice is overflow; trailing slice is empty. `sub_fill`
+    /// is the primary marker's position within the cell.
+    OverflowOuterBoundary,
 }
 
 /// A single cell of the rendered bar.

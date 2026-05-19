@@ -21,8 +21,11 @@ fn ascii(kind: CellKind) -> char {
         CellKind::Empty => ' ',
         CellKind::PrimaryFull
         | CellKind::SecondaryFull
+        | CellKind::OverflowFull
         | CellKind::PrimaryBoundary
         | CellKind::SecondaryBoundary
+        | CellKind::OverflowInnerBoundary
+        | CellKind::OverflowOuterBoundary
         | CellKind::DegradedOverlap => '█',
     }
 }
@@ -32,9 +35,13 @@ fn eighth(kind: CellKind, sub_fill: u8) -> char {
     const TABLE: [char; 9] = [' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
     match kind {
         CellKind::Empty => ' ',
-        CellKind::PrimaryFull | CellKind::SecondaryFull => '█',
+        CellKind::PrimaryFull
+        | CellKind::SecondaryFull
+        | CellKind::OverflowFull => '█',
         CellKind::PrimaryBoundary
         | CellKind::SecondaryBoundary
+        | CellKind::OverflowInnerBoundary
+        | CellKind::OverflowOuterBoundary
         | CellKind::DegradedOverlap => TABLE[sub_fill.min(8) as usize],
     }
 }
