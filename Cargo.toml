@@ -1,6 +1,6 @@
 [package]
 name = "pixbar"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 description = "Sub-cell-precision two-value progress bar for narrow terminal widths (Unicode 1/8 block, no font patching required)."
 license = "MIT"
